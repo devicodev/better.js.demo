@@ -1,0 +1,296 @@
+/**
+ * Extended jquery ui datepicker
+ *
+ * Example:
+ *   $(document).ready(function(){
+ *       $('#dates').dateswitcher({
+ *           ajax: {
+ *               url: baseUrl+ '/reports/index/projects',
+ *               success: callbak_func
+ *          },
+ *           locale: 'ru' (default en),
+ *           changeMonth: (true),
+ *           changeYear: (true),
+ *           dateFormat: ('MM yy')
+ *       });
+ *   });
+ *
+ *   callback_func - function that called in success part of ajax request
+ *
+ * @version 0.8.2
+ * @author Sergey Nabiulin <nabiulin@nixsolutions.com>
+ */
+
+(function($) {
+
+    /**
+     * Save magic this
+     */
+    var self = this;
+
+    /**
+     * Local datepicker object
+     */
+    var $datepicker = null;
+
+    /**
+     * Render pligin
+     *
+     * @param container jQuery object
+     * @param options plugin options
+     */
+    self._render = function(container, options) {
+
+        /**
+         * Css setters
+         */
+        container.css('width', 250)
+            .css('margin', '0 auto');
+
+        var dpuuid = new Date().getTime() + '_';
+		
+		
+		var fct = $;
+		var clone = function() {
+			return fct.apply(this, arguments);
+		};
+		clone.prototype = fct.prototype;
+		for (property in fct) {
+			if (fct.hasOwnProperty(property) && property !== 'prototype') {
+				clone[property] = fct[property];
+			}
+		}
+		
+
+		window['DP_jQuery_' + dpuuid] = $//clone; // замени $ на clone чтоб все пофиксить. На поиск этого решения ушло часов 12
+
+		
+		$.extend(window['DP_jQuery_' + dpuuid], {datepicker: $datepicker});
+
+        /**
+         * Overrided _generateHtml
+         *
+         * @param inst datepicker instance
+         * @return output html
+         */
+        $datepicker._generateHTML = function(inst) {
+            var today = new Date();
+            today = this._daylightSavingAdjust(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
+            var isRTL = this._get(inst, 'isRTL');
+            var showButtonPanel = this._get(inst, 'showButtonPanel');
+            var hideIfNoPrevNext = this._get(inst, 'hideIfNoPrevNext');
+            var navigationAsDateFormat = this._get(inst, 'navigationAsDateFormat');
+            var numMonths = this._getNumberOfMonths(inst);
+            var showCurrentAtPos = this._get(inst, 'showCurrentAtPos');
+            var stepMonths = this._get(inst, 'stepMonths');
+            var isMultiMonth = (numMonths[0] != 1 || numMonths[1] != 1);
+            var currentDate = this._daylightSavingAdjust((!inst.currentDay ? new Date(9999, 9, 9) :
+                new Date(inst.currentYear, inst.currentMonth, inst.currentDay)));
+            var minDate = this._getMinMaxDate(inst, 'min');
+            var maxDate = this._getMinMaxDate(inst, 'max');
+            var drawMonth = inst.drawMonth - showCurrentAtPos;
+            var drawYear = inst.drawYear;
+            if (drawMonth < 0) {
+                drawMonth += 12;
+                drawYear--;
+            }
+            if (maxDate) {
+                var maxDraw = this._daylightSavingAdjust(new Date(maxDate.getFullYear(),
+                    maxDate.getMonth() - (numMonths[0] * numMonths[1]) + 1, maxDate.getDate()));
+                maxDraw = (minDate && maxDraw < minDate ? minDate : maxDraw);
+                while (this._daylightSavingAdjust(new Date(drawYear, drawMonth, 1)) > maxDraw) {
+                    drawMonth--;
+                    if (drawMonth < 0) {
+                        drawMonth = 11;
+                        drawYear--;
+                    }
+                }
+            }
+            inst.drawMonth = drawMonth;
+            inst.drawYear = drawYear;
+            var prevText = this._get(inst, 'prevText');
+            prevText = (!navigationAsDateFormat ? prevText : this.formatDate(prevText,
+                this._daylightSavingAdjust(new Date(drawYear, drawMonth - stepMonths, 1)),
+                this._getFormatConfig(inst)));
+
+            var prev = (this._canAdjustMonth(inst, -1, drawYear, drawMonth) ?
+                '<a class="ui-datepicker-prev ui-corner-all" onclick="DP_jQuery_' + dpuuid +
+                '.datepicker._adjustDate(\'#' + inst.id + '\', -' + stepMonths + ', \'M\');"' +
+                ' title="' + prevText + '"><span class="ui-icon ui-icon-circle-triangle-'
+                    + ( isRTL ? 'e' : 'w') + '">' + prevText + '</span></a>' :
+                (hideIfNoPrevNext ? '' : '<a class="ui-datepicker-prev ui-corner-all ui-state-disabled" '
+                    + 'title="'+ prevText +'"><span class="ui-icon ui-icon-circle-triangle-'
+                    + ( isRTL ? 'e' : 'w') + '">' + prevText + '</span></a>'));
+
+            var nextText = this._get(inst, 'nextText');
+            nextText = (!navigationAsDateFormat ? nextText : this.formatDate(nextText,
+                this._daylightSavingAdjust(new Date(drawYear, drawMonth + stepMonths, 1)),
+                this._getFormatConfig(inst)));
+
+            var next = (this._canAdjustMonth(inst, +1, drawYear, drawMonth) ?
+                '<a class="ui-datepicker-next ui-corner-all" onclick="DP_jQuery_' + dpuuid +
+                '.datepicker._adjustDate(\'#' + inst.id + '\', +' + stepMonths + ', \'M\');"' +
+                ' title="' + nextText + '"><span class="ui-icon ui-icon-circle-triangle-' + ( isRTL ? 'w' : 'e') + '">'
+                    + nextText + '</span></a>' :
+                (hideIfNoPrevNext ? '' : '<a class="ui-datepicker-next ui-corner-all ui-state-disabled" '
+                    + 'title="'+ nextText + '"><span class="ui-icon ui-icon-circle-triangle-'
+                    + (isRTL ? 'w' : 'e') + '">' + nextText + '</span></a>')
+                );
+            var currentText = this._get(inst, 'currentText');
+            var gotoDate = (this._get(inst, 'gotoCurrent') && inst.currentDay ? currentDate : today);
+            currentText = (!navigationAsDateFormat ? currentText :
+                this.formatDate(currentText, gotoDate, this._getFormatConfig(inst)));
+            var controls = (!inst.inline ?
+                '<button type="button" class="ui-datepicker-close ui-state-default ui-priority-primary ui-corner-all" '
+                    + 'onclick="DP_jQuery_' + dpuuid + '.datepicker._hideDatepicker();">'
+                    + this._get(inst, 'closeText') + '</button>' : '');
+            var buttonPanel = (showButtonPanel) ? '<div class="ui-datepicker-buttonpane ui-widget-content">'
+                + (isRTL ? controls : '')
+                + (this._isInRange(inst, gotoDate)
+                    ? '<button type="button" class="ui-datepicker-current ui-state-default ui-priority-secondary ui-corner-all" onclick="DP_jQuery_'
+                + dpuuid + '.datepicker._gotoToday(\'#' + inst.id + '\');"' +'>'
+                + currentText + '</button>' : '') + (isRTL ? '' : controls) + '</div>' : '';
+            var monthNames = this._get(inst, 'monthNames');
+            var monthNamesShort = this._get(inst, 'monthNamesShort');
+            var html = '';
+            for (var row = 0; row < numMonths[0]; row++) {
+                var group = '';
+                this.maxRows = 4;
+                for (var col = 0; col < numMonths[1]; col++) {
+                    var selectedDate = this._daylightSavingAdjust(new Date(drawYear, drawMonth, inst.selectedDay));
+                    var cornerClass = ' ui-corner-all';
+                    var calender = '';
+                    if (isMultiMonth) {
+                        calender += '<div class="ui-datepicker-group';
+                        if (numMonths[1] > 1)
+                            switch (col) {
+                                case 0: calender += ' ui-datepicker-group-first';
+                                    cornerClass = ' ui-corner-' + (isRTL ? 'right' : 'left'); break;
+                                case numMonths[1]-1: calender += ' ui-datepicker-group-last';
+                                    cornerClass = ' ui-corner-' + (isRTL ? 'left' : 'right'); break;
+                                default: calender += ' ui-datepicker-group-middle'; cornerClass = ''; break;
+                            }
+                        calender += '">';
+                    }
+                    calender += '<div class="ui-datepicker-header ui-widget-header ui-helper-clearfix'
+                        + cornerClass + '">' + (/all|left/.test(cornerClass) && row == 0 ? (isRTL ? next : prev) : '')
+                        + (/all|right/.test(cornerClass) && row == 0 ? (isRTL ? prev : next) : '')
+                        + this._generateMonthYearHeader(inst, drawMonth, drawYear, minDate, maxDate,
+                        row > 0 || col > 0, monthNames, monthNames) + // draw month headers
+                        '</div>';
+
+                    drawMonth++;
+                    if (drawMonth > 11) {
+                        drawMonth = 0;
+                        drawYear++;
+                    }
+                    calender += (
+                        isMultiMonth ? '</div>' + ((numMonths[0] > 0 && col == numMonths[1]-1)
+                            ? '<div class="ui-datepicker-row-break"></div>' : '') : ''
+                    );
+                    group += calender;
+                }
+                html += group;
+            }
+            html += buttonPanel + ($.browser.msie && parseInt($.browser.version,10) < 7 && !inst.inline ?
+                '<iframe src="javascript:false;" class="ui-datepicker-cover" frameborder="0"></iframe>' : '');
+            inst._keyEvent = false;
+            return html;
+        };
+
+        /**
+         * Save _generateMonthYearHeader method to local var
+         */
+        var generateMonthYearHeader  = $datepicker._generateMonthYearHeader;
+
+        /**
+         * Override toolbox method
+         */
+        $datepicker._generateMonthYearHeader = function(
+            inst, drawMonth, drawYear, minDate, maxDate, secondary, monthNames, monthNamesShort
+        ) {
+            var result = generateMonthYearHeader.apply(this, arguments);
+            return result.replace(/DP_jQuery_\d+\.datepicker/g, 'DP_jQuery_' + dpuuid + '.datepicker');
+        }
+
+    }
+
+    /**
+     * Staff datepicker localization
+     *
+     * @param locale current locale
+     * @return settings
+     */
+    self._translate = function(locale) {
+        $datepicker.regional['ru'] = {
+            monthNames: ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+                'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'],
+            monthNamesShort: ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
+        }
+
+        if ($datepicker.regional[locale] == 'undefined') {
+            locale = '';
+        }
+
+       return _datepicker.setDefaults(_datepicker.regional[locale]);
+    }
+
+    /**
+     * Staffload datepicker plugin body
+     *
+     * @param options user options
+     */
+    $.fn.dateswitcher = function(options){
+
+        if (!this.length) {
+            return this;
+	}
+
+        //create private datepicker object
+       $datepicker = $.extend({}, $.datepicker);
+
+        //render datepicker
+       self._render($(this), options);
+
+       //extend default options
+        if (typeof options == 'object') {
+            var ajax = $.extend({}, options.ajax || {});
+            delete options.ajax;
+            var options = $.extend({
+                'changeMonth': true,
+                'changeYear': true,
+                'locale': '',
+                'dateFormat': 'MM yy'
+            }, options || {});
+            if (ajax.success && $.isFunction(ajax.success)) {
+                options.onChangeMonthYear = function(year, month) {
+                    $.ajax($.extend({
+                        type: 'POST',
+                        dataType: 'json',
+                        data: 'year=' + year + '&month=' + month
+                    },  ajax || {}));
+                }
+            }
+        }
+
+	/* Initialise the date picker. */
+	if (!$datepicker.initialized) {
+            $(document).mousedown($datepicker._checkExternalClick).
+            find('body').append($datepicker.dpDiv);
+            $datepicker.initialized = true;
+	}
+
+	var otherArgs = Array.prototype.slice.call(arguments, 1);
+	if (typeof options == 'string' && (options == 'isDisabled' || options == 'getDate' || options == 'widget'))
+            return $datepicker['_' + options + 'Datepicker'].apply($datepicker, [this[0]].concat(otherArgs));
+	if (options == 'option' && arguments.length == 2 && typeof arguments[1] == 'string')
+            return $datepicker['_' + options + 'Datepicker'].apply($datepicker, [this[0]].concat(otherArgs));
+
+        return this.each(function() {
+            typeof options == 'string' ?
+                $datepicker['_' + options + 'Datepicker'].apply($datepicker, [this].concat(otherArgs)) :
+                $datepicker._attachDatepicker(this, options);
+	});
+    }
+
+})(jQuery);

@@ -1,0 +1,58 @@
+<html>
+<head>
+<title>Fucking UI</title>
+<script type="text/javascript" src="./jquery.min.js"></script>
+<script type="text/javascript" src="./jquery-ui.min.js"></script>
+<script type="text/javascript" src="./dateSwitcher.js"></script>
+<script type="text/javascript" src="./index.js"></script>
+<link href="./ui.css" media="screen" rel="stylesheet" type="text/css" />
+<script>
+    var datepickerOptions = {
+        dateFormat: 'dd.mm.yy',
+        autoSize: true,         // automatically resize the input field
+        altFormat: 'dd.mm.yy',  // Date Format used
+        firstDay: 1,            // Start with Monday
+        changeFirstDay: false,
+        showOtherMonths: true,
+        selectOtherMonths: true,
+        changeYear: true
+};
+</script>
+<style>
+    #filter-dialog {
+    display: none;
+}
+</style>
+
+</head>
+<body>
+    <a href="javascript:void(0);" class="button" id="show-filter" title="">
+                Filter
+            </a>
+<div id="dates"></div>
+
+<div id="filter-dialog">
+    <span id="dialog-title">Filter</span>
+    <table>
+        <tr class="bymonth">
+            <td>PERIOD</td>
+            <td>
+                <input type="text" name="from" id="filter-from" />
+            </td>
+            <td>
+                <input type="text" name="to" id="filter-to" />
+            </td>
+        </tr>
+        <tr class="filter-buttons">
+            <td colspan="3" align="center">
+                <a href="javascript:void(0);" class="button" id="filter-apply" title="OK">OK</a>
+                <a href="javascript:void(0);" class="button" id="filter-close" title="">
+                    Cancel
+                </a>
+            </td>
+        </tr>
+    </table>
+</div>
+
+</body>
+</html>
